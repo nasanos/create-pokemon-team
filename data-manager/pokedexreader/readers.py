@@ -9,31 +9,19 @@ by the Free Software Foundation, either version 3 of the License, or
 any later version.
 """
 
+import json
 import sqlite3
 from .constants import Constants
 
 
-class EeveeReader():
+class AbstractReader:
     def __init__(self, path):
         self._pokedex = None
         self._id_pokemon_mapping = {}
         self._types = Constants.types
         self._versions = Constants.known_versions
-        self._missing_moves_map = Constants.eeveedex_missing_moves
-        self._querydb = {
-            "fetch_all_moves": Constants.eeveedex_query_fetch_all_moves,
-            "fetch_all_pokemon": Constants.eeveedex_query_fetch_all_pokemon,
-            "fetch_pokemon_moves": Constants.eeveedex_query_fetch_pokemon_moves,
-            "fetch_pokemon_types": Constants.eeveedex_query_fetch_pokemon_types,
-            "fetch_all_moves_with_version": Constants.eeveedex_query_fetch_all_moves_with_version,
-        }
-        self._init_db_connection(path)
         self._fill_hidden_powers()
         self._fill_natural_gifts()
-
-    def _init_db_connection(self, path):
-        self._db_conn = sqlite3.connect(path)
-        self._db_conn.row_factory = sqlite3.Row
 
     def _fill_hidden_powers(self):
         self._hidden_powers = []
@@ -56,6 +44,24 @@ class EeveeReader():
                 "move_name": "Natural Gift {}".format(move_type),
             }
             self._natural_gifts.append(struct)
+
+
+class EeveeReader(AbstractReader):
+    def __init__(self, path):
+        super().__init__(path)
+        self._missing_moves_map = Constants.eeveedex_missing_moves
+        self._querydb = {
+            "fetch_all_moves": Constants.eeveedex_query_fetch_all_moves,
+            "fetch_all_pokemon": Constants.eeveedex_query_fetch_all_pokemon,
+            "fetch_pokemon_moves": Constants.eeveedex_query_fetch_pokemon_moves,
+            "fetch_pokemon_types": Constants.eeveedex_query_fetch_pokemon_types,
+            "fetch_all_moves_with_version": Constants.eeveedex_query_fetch_all_moves_with_version,
+        }
+        self._init_db_connection(path)
+
+    def _init_db_connection(self, path):
+        self._db_conn = sqlite3.connect(path)
+        self._db_conn.row_factory = sqlite3.Row
 
     def _fetch_all_pokemon(self):
         return self._db_conn.execute(self._querydb["fetch_all_pokemon"]).fetchall()
@@ -225,3 +231,14 @@ class EeveeReader():
                 "name": move_data_row["move_name"]
             }
             self._pokedex.add_move(**move)
+
+
+class ShowdownReader(AbstractReader):
+    def __init__(self, path):
+        super().__init__(path)
+
+    def fill_pokedex(self, pokedex):
+        pass
+        # def add_pokemon(self, introduced_in_version=None, pokemon_id=None, name=None, pokemon_type=None):
+        # def add_pokemon_moves(self, version=None, pokemon_id=None, moves=None):
+        # def add_move(self, move_id=None, move_type=None, category=None, name=None):
