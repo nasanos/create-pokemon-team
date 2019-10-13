@@ -11,6 +11,7 @@ any later version.
 
 import json
 import sqlite3
+from pathlib import Path
 from .constants import Constants
 
 
@@ -236,6 +237,46 @@ class EeveeReader(AbstractReader):
 class ShowdownReader(AbstractReader):
     def __init__(self, path):
         super().__init__(path)
+        self._all_pokemon = self._fetch_all_pokemon(path)
+        self._all_moves = self._fetch_all_moves(path)
+        self._pokemon_moves_map = self._fetch_learnsets(path)
+        # stub - need to add pokedex in each game constant
+        self._pokemon_list = {}
+
+    def _fetch_all_pokemon(self, basedir_path):
+        with open(Path(basedir_path).joinpath('pokedex.json')) as fh:
+            data = json.load(fh)
+        return data
+
+    def _fetch_all_moves(self, basedir_path):
+        with open(Path(basedir_path).joinpath('moves.json')) as fh:
+            data = json.load(fh)
+        return data
+
+    def _fetch_learnsets(self, basedir_path):
+        with open(Path(basedir_path).joinpath('learnsets.json')) as fh:
+            data = json.load(fh)
+        return data
+
+    def _get_prevolution(self, pokemon_id, version):
+        pokemon_obj = self._all_pokemon[pokemon_id]
+        if "prevo" in pokemon_obj:
+            prevo = pokemon_obj["prevo"]
+        if "baseSpecies" in pokemon_obj and (
+                pokemon_id.endswith('mega')
+                or pokemon_id.endswith('primal')):
+            prevo = pokemon_obj["baseSpecies"].lower()
+
+        if prevo in self._pokemon_list[version]:
+            return prevo
+
+        return None
+
+    def _position_in_evo_chain(self, pokemon_id, version):
+        prevo = self._get_prevolution(pokemon_id, version)
+        if prevo:
+            return 1 + self._position_in_evo_chain(prevo, version)
+        return 0
 
     def fill_pokedex(self, pokedex):
         pass
