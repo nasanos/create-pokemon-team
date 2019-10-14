@@ -21,6 +21,7 @@ class AbstractReader:
         self._id_pokemon_mapping = {}
         self._types = Constants.types
         self._versions = Constants.known_versions
+        self._valid_pokemon_list = Constants.available_pokemon
         self._fill_hidden_powers()
         self._fill_natural_gifts()
 
@@ -240,8 +241,6 @@ class ShowdownReader(AbstractReader):
         self._all_pokemon = self._fetch_all_pokemon(path)
         self._all_moves = self._fetch_all_moves(path)
         self._pokemon_moves_map = self._fetch_learnsets(path)
-        # stub - need to add pokedex in each game constant
-        self._pokemon_list = {}
 
     def _fetch_all_pokemon(self, basedir_path):
         with open(Path(basedir_path).joinpath('pokedex.json')) as fh:
@@ -267,7 +266,7 @@ class ShowdownReader(AbstractReader):
                 or pokemon_id.endswith('primal')):
             prevo = pokemon_obj["baseSpecies"].lower()
 
-        if prevo in self._pokemon_list[version]:
+        if prevo in self._valid_pokemon_list[version]:
             return prevo
 
         return None

@@ -9,6 +9,8 @@ by the Free Software Foundation, either version 3 of the License, or
 any later version.
 """
 
+from .constants_pokedex import available_pokemon
+
 
 class Constants():
     # Known types. Should be self-explanatory
@@ -194,6 +196,9 @@ class Constants():
     moves_inheriting_type = [
         "judgment", "multi-attack", "revelation-dance"
     ]
+
+    # Map of Pokemon available in each game
+    available_pokemon = available_pokemon
 
     # List of Pokemon that were not available in given version despite
     # being introduced in previous one.
