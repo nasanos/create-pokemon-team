@@ -241,6 +241,8 @@ class ShowdownReader(AbstractReader):
         self._all_pokemon = self._fetch_all_pokemon(path)
         self._all_moves = self._fetch_all_moves(path)
         self._pokemon_moves_map = self._fetch_learnsets(path)
+        self._ignored_versions = ["red-blue", "yellow", "gold-silver",
+                                  "crystal"]
 
     def _fetch_all_pokemon(self, basedir_path):
         with open(Path(basedir_path).joinpath('pokedex.json')) as fh:
@@ -255,10 +257,58 @@ class ShowdownReader(AbstractReader):
     def _fetch_learnsets(self, basedir_path):
         with open(Path(basedir_path).joinpath('learnsets.json')) as fh:
             data = json.load(fh)
+        data = self._transform_learnsets(data)
         return data
+
+    def _transform_learnsets(self, learnsets):
+        """Changes Showdown learnsets map to one easier to work with
+
+        Basically inverts pokemon->move->version to pokemon->version->move,
+        losing some details in the process.
+        """
+        out = {}
+        for pokemon in learnsets:
+            learnset = learnsets[pokemon]["learnset"]
+            out[pokemon] = self._invert_learnset_map(learnset)
+
+        return out
+
+    def _invert_learnset_map(self, learnset):
+        """Performs transformation for single Pokemon. See _transform_learnsets
+        """
+        out = {}
+        for move, learning_opportunities in learnset.items():
+            versions = self._learning_opportunities_to_versions(move, learning_opportunities)
+            for version in versions:
+                out.setdefault(version, set()).add(move)
+
+        return out
+
+    def _learning_opportunities_to_versions(self, move, learning_opportunities):
+        versions = set()
+        for item in learning_opportunities:
+            generation = int(item[0])
+            method = item[1]
+            games = Constants.games_in_generation[generation]
+            if method == "C":  # optimization trick, ignore it
+                continue
+            if method == "T":  # Tutor - often exclusive to last game in generation
+                # TODO: there are some exceptions to the rule,
+                # and one move that can be learned from tutor in only one game in gen III
+                games = [games[-1]]
+            versions.update(games)
+        return versions
+
+    def _create_pokemon_name(self, pokemon_id):
+        pass
+
+    def _get_pokemon_moves_in_version(self, pokemon_id, version):
+        # TODO: add prevolutions, smeargle, expand hidden power etc.
+        return self._pokemon_moves_map[pokemon_id][version]
 
     def _get_prevolution(self, pokemon_id, version):
         pokemon_obj = self._all_pokemon[pokemon_id]
+        prevo = object()
         if "prevo" in pokemon_obj:
             prevo = pokemon_obj["prevo"]
         if "baseSpecies" in pokemon_obj and (
@@ -278,7 +328,21 @@ class ShowdownReader(AbstractReader):
         return 0
 
     def fill_pokedex(self, pokedex):
-        pass
-        # def add_pokemon(self, introduced_in_version=None, pokemon_id=None, name=None, pokemon_type=None):
-        # def add_pokemon_moves(self, version=None, pokemon_id=None, moves=None):
-        # def add_move(self, move_id=None, move_type=None, category=None, name=None):
+        for version in self._valid_pokemon_list:
+            if version in self._ignored_versions:
+                continue
+
+            available_pokemon = sorted(
+                self._valid_pokemon_list[version],
+                key=lambda x: self._position_in_evo_chain(x, version)
+            )
+
+            for pokemon_id in available_pokemon:
+                pokemon_name = self._create_pokemon_name(pokemon_id)
+                pokemon_types = self._all_pokemon[pokemon_id]['types']
+                pokemon_moves = self._get_pokemon_moves_in_version(pokemon_id, version)
+                pokedex.add_pokemon(version, pokemon_id, pokemon_name, pokemon_types)
+                pokedex.add_pokemon_moves(version, pokemon_id, pokemon_moves)
+
+        for move in self._all_moves:
+            pass
