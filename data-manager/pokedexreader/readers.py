@@ -300,11 +300,20 @@ class ShowdownReader(AbstractReader):
         return versions
 
     def _create_pokemon_name(self, pokemon_id):
-        pass
+        return self._all_pokemon[pokemon_id]['species']
 
     def _get_pokemon_moves_in_version(self, pokemon_id, version):
-        # TODO: add prevolutions, smeargle, expand hidden power etc.
-        return self._pokemon_moves_map[pokemon_id][version]
+        out = set()
+        while True:
+            moves = self._pokemon_moves_map[pokemon_id][version]
+            out.update(moves)
+            prevo = self._get_prevolution(pokemon_id, version)
+            if prevo:
+                pokemon_id = prevo
+            else:
+                break
+        return out
+        # TODO: smeargle, expand hidden power etc.
 
     def _get_prevolution(self, pokemon_id, version):
         pokemon_obj = self._all_pokemon[pokemon_id]
@@ -327,6 +336,9 @@ class ShowdownReader(AbstractReader):
             return 1 + self._position_in_evo_chain(prevo, version)
         return 0
 
+    def _ignore_move(self, move_obj):
+        return "isZ" in move_obj
+
     def fill_pokedex(self, pokedex):
         for version in self._valid_pokemon_list:
             if version in self._ignored_versions:
@@ -340,9 +352,15 @@ class ShowdownReader(AbstractReader):
             for pokemon_id in available_pokemon:
                 pokemon_name = self._create_pokemon_name(pokemon_id)
                 pokemon_types = self._all_pokemon[pokemon_id]['types']
-                pokemon_moves = self._get_pokemon_moves_in_version(pokemon_id, version)
+                try:
+                    pokemon_moves = self._get_pokemon_moves_in_version(pokemon_id, version)
+                except KeyError:
+                    # special case - ignore for now
+                    continue
                 pokedex.add_pokemon(version, pokemon_id, pokemon_name, pokemon_types)
                 pokedex.add_pokemon_moves(version, pokemon_id, pokemon_moves)
 
-        for move in self._all_moves:
-            pass
+        for move_id, move_obj in self._all_moves.items():
+            if self._ignore_move(move_obj):
+                continue
+            pokedex.add_move(move_id, move_obj["type"], move_obj["category"].lower(), move_obj["name"])
